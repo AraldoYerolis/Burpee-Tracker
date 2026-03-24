@@ -173,7 +173,45 @@
       outline: none;
       transition: color 0.2s;
     }
-    .timer-num.editing { border-bottom: 2px solid var(--purple); cursor: text; letter-spacing: -1px; }
+    /* Timer edit modal */
+    .t-modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.72);
+      z-index: 200;
+      align-items: center;
+      justify-content: center;
+    }
+    .t-modal-overlay.show { display: flex; }
+    .t-modal {
+      background: var(--surf);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 24px 20px;
+      width: 280px;
+      max-width: 90vw;
+    }
+    .t-modal-lbl { font-size: 10px; font-weight: 800; letter-spacing: 1px; color: var(--text3); text-transform: uppercase; margin-bottom: 16px; }
+    .t-modal-inputs { display: flex; gap: 8px; align-items: center; justify-content: center; margin-bottom: 20px; }
+    .t-modal-inputs input {
+      width: 68px;
+      background: var(--surf2);
+      border: 1px solid var(--border);
+      border-radius: var(--rsm);
+      color: var(--text);
+      font-size: 30px;
+      font-weight: 800;
+      text-align: center;
+      padding: 10px 6px;
+      outline: none;
+      -moz-appearance: textfield;
+    }
+    .t-modal-inputs input::-webkit-inner-spin-button,
+    .t-modal-inputs input::-webkit-outer-spin-button { -webkit-appearance: none; }
+    .t-modal-inputs input:focus { border-color: var(--purple); }
+    .t-modal-sep { font-size: 30px; font-weight: 800; color: var(--text2); }
+    .t-modal-btns { display: flex; gap: 8px; }
     .timer-num.running { color: #a78bfa; }
     .timer-hint { text-align: center; font-size: 10px; color: var(--text3); margin-top: 4px; }
     .timer-btns { display: flex; gap: 8px; margin-top: 14px; }
@@ -216,6 +254,7 @@
     .rep-pm:active { background: var(--surf3); }
     .rep-num {
       flex: 1;
+      min-width: 0;
       text-align: center;
       background: var(--surf2);
       border: 1px solid var(--border);
@@ -385,7 +424,7 @@
   <div class="card">
     <div class="clbl">Timer</div>
     <div class="timer-num" id="timer-num" onclick="editTimer()">00:10:00</div>
-    <div class="timer-hint" id="timer-hint">tap to edit</div>
+    <div class="timer-hint" id="timer-hint">tap to set time</div>
     <div class="timer-btns">
       <button class="btn primary" id="start-btn" onclick="toggleTimer()">Start</button>
       <button class="btn" onclick="resetTimer()">Reset</button>
@@ -453,14 +492,30 @@
 
 </div>
 
+<!-- Timer edit modal -->
+<div class="t-modal-overlay" id="timer-modal">
+  <div class="t-modal">
+    <div class="t-modal-lbl">Set Timer</div>
+    <div class="t-modal-inputs">
+      <input type="number" id="modal-min" min="0" max="99" placeholder="00">
+      <span class="t-modal-sep">:</span>
+      <input type="number" id="modal-sec" min="0" max="59" placeholder="00">
+    </div>
+    <div class="t-modal-btns">
+      <button class="btn" style="flex:1" onclick="closeTimerModal(false)">Cancel</button>
+      <button class="btn primary" style="flex:1" onclick="closeTimerModal(true)">Set</button>
+    </div>
+  </div>
+</div>
+
 <script>
 // --- State ---
 var sType = 'benchmark';
+var elapsedSec = 0;
 var durMin = 10;
 var timerSec = 600;
 var timerOn = false;
 var timerTick = null;
-var editingTimer = false;
 var graphMode = 'pace';
 
 // --- Storage ---
@@ -497,6 +552,10 @@ function durLabel(secs) {
 }
 function fmtDate(iso) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+function getCompletedSecs(s) {
+  return s.completedSeconds != null ? s.completedSeconds : s.seconds;
 }
 
 // --- Session type ---
@@ -557,14 +616,19 @@ function toggleTimer() {
   timerOn ? pauseTimer() : startTimer();
 }
 function startTimer() {
-  if (timerSec <= 0) return;
   timerOn = true;
   document.getElementById('start-btn').textContent = 'Pause';
   document.getElementById('timer-num').classList.add('running');
   timerTick = setInterval(function() {
-    timerSec--;
-    updTimer();
-    if (timerSec <= 0) pauseTimer();
+    elapsedSec++;
+    if (sType === 'benchmark') {
+      timerSec--;
+      updTimer();
+      if (timerSec <= 0) pauseTimer();
+    } else {
+      timerSec++;
+      updTimer();
+    }
   }, 1000);
 }
 function pauseTimer() {
@@ -575,6 +639,7 @@ function pauseTimer() {
 }
 function resetTimer() {
   pauseTimer();
+  elapsedSec = 0;
   var m = effMin();
   timerSec = (sType === 'benchmark' && m) ? m * 60 : 0;
   updTimer();
@@ -584,36 +649,25 @@ function loadBenchTime() {
   var m = effMin();
   if (!m) return;
   pauseTimer();
+  elapsedSec = 0;
   timerSec = m * 60;
   updTimer();
 }
 function editTimer() {
-  if (timerOn || editingTimer) return;
-  editingTimer = true;
-  var el = document.getElementById('timer-num');
-  var hint = document.getElementById('timer-hint');
-  el.contentEditable = 'true';
-  el.classList.add('editing');
-  hint.textContent = 'HH:MM:SS or MM:SS -- press Enter';
-  el.focus();
-  var r = document.createRange();
-  r.selectNodeContents(el);
-  var sel = window.getSelection();
-  sel.removeAllRanges();
-  sel.addRange(r);
+  if (timerOn) return;
+  document.getElementById('modal-min').value = Math.floor(timerSec / 60);
+  document.getElementById('modal-sec').value = timerSec % 60;
+  document.getElementById('timer-modal').classList.add('show');
+  document.getElementById('modal-min').focus();
 }
-function commitEdit(save) {
-  if (!editingTimer) return;
-  editingTimer = false;
-  var el = document.getElementById('timer-num');
+function closeTimerModal(save) {
+  document.getElementById('timer-modal').classList.remove('show');
   if (save) {
-    var v = parseTime(el.textContent);
-    if (!isNaN(v) && v >= 0) timerSec = v;
+    var m = parseInt(document.getElementById('modal-min').value) || 0;
+    var s = parseInt(document.getElementById('modal-sec').value) || 0;
+    timerSec = m * 60 + s;
+    updTimer();
   }
-  el.textContent = fmtTime(timerSec);
-  el.contentEditable = 'false';
-  el.classList.remove('editing');
-  document.getElementById('timer-hint').textContent = 'tap to edit';
 }
 
 // --- Reps ---
@@ -635,6 +689,7 @@ function logSession() {
     type: sType,
     reps: reps,
     seconds: benchSecs,
+    completedSeconds: elapsedSec > 0 ? elapsedSec : (benchSecs || null),
     target: target,
     benchmarkMinutes: sType === 'benchmark' ? m : null
   };
@@ -656,10 +711,11 @@ function logSession() {
 }
 
 function showLastSession(s) {
-  var p = calcPace(s.reps, s.seconds);
+  var secs = getCompletedSecs(s);
+  var p = calcPace(s.reps, secs);
   document.getElementById('last-stats').innerHTML =
     '<div class="ls"><div class="v">' + s.reps + '</div><div class="l">Reps</div></div>' +
-    '<div class="ls"><div class="v">' + durLabel(s.seconds) + '</div><div class="l">Duration</div></div>' +
+    '<div class="ls"><div class="v">' + durLabel(secs) + '</div><div class="l">Duration</div></div>' +
     '<div class="ls"><div class="v">' + (p ? p + '/m' : '--') + '</div><div class="l">Pace</div></div>';
   document.getElementById('last-meta').textContent =
     s.type === 'benchmark'
@@ -691,14 +747,14 @@ function renderStats(arr) {
   document.getElementById('s-total').textContent = total.toLocaleString();
   document.getElementById('s-sessions').textContent = arr.length;
 
-  var bench = arr.filter(function(s) { return s.type === 'benchmark' && s.seconds > 0 && s.reps > 0; });
+  var bench = arr.filter(function(s) { return s.type === 'benchmark' && getCompletedSecs(s) > 0 && s.reps > 0; });
   if (bench.length > 0) {
     var best = bench.reduce(function(b, s) {
-      return (s.reps / s.seconds > b.reps / b.seconds) ? s : b;
+      return (s.reps / getCompletedSecs(s) > b.reps / getCompletedSecs(b)) ? s : b;
     });
-    var p = calcPace(best.reps, best.seconds);
+    var p = calcPace(best.reps, getCompletedSecs(best));
     document.getElementById('s-best').textContent = p ? p + '/m' : '--';
-    document.getElementById('s-best-sub').textContent = best.reps + ' in ' + durLabel(best.seconds);
+    document.getElementById('s-best-sub').textContent = best.reps + ' in ' + durLabel(getCompletedSecs(best));
   } else {
     document.getElementById('s-best').textContent = '--';
     document.getElementById('s-best-sub').textContent = '';
@@ -719,7 +775,7 @@ function renderBenchBests(arr) {
   var keys = Object.keys(map).map(Number).sort(function(a, b) { return a - b; });
   document.getElementById('bench-rows').innerHTML = keys.map(function(k) {
     var s = map[k];
-    var p = calcPace(s.reps, s.seconds);
+    var p = calcPace(s.reps, getCompletedSecs(s));
     return '<div class="br"><span class="d">Best ' + k + ' min</span>' +
       '<div><span class="r">' + s.reps + ' reps</span>' +
       (p ? '<span class="p">' + p + '/min</span>' : '') + '</div></div>';
@@ -740,7 +796,7 @@ function renderGraph(arr) {
   var empty = document.getElementById('g-empty');
 
   var data = arr
-    .filter(function(s) { return s.type === 'benchmark' && s.seconds > 0 && s.reps >= 0; })
+    .filter(function(s) { return s.type === 'benchmark' && getCompletedSecs(s) > 0 && s.reps >= 0; })
     .slice(0, 30)
     .reverse();
 
@@ -765,7 +821,7 @@ function renderGraph(arr) {
   ctx.clearRect(0, 0, W, H);
 
   var vals = data.map(function(s) {
-    return graphMode === 'pace' ? parseFloat(calcPace(s.reps, s.seconds)) : s.reps;
+    return graphMode === 'pace' ? parseFloat(calcPace(s.reps, getCompletedSecs(s))) : s.reps;
   });
   var mn = Math.min.apply(null, vals);
   var mx = Math.max.apply(null, vals);
@@ -839,7 +895,8 @@ function renderList(arr) {
     return;
   }
   el.innerHTML = arr.map(function(s) {
-    var p = calcPace(s.reps, s.seconds);
+    var secs = getCompletedSecs(s);
+    var p = calcPace(s.reps, secs);
     var isBench = s.type === 'benchmark';
     return '<div class="si">' +
       '<div class="si-top">' +
@@ -848,24 +905,13 @@ function renderList(arr) {
       '</div>' +
       '<div class="si-stats">' +
         '<div class="si-stat"><div class="v">' + s.reps + '</div><div class="l">Reps</div></div>' +
-        '<div class="si-stat"><div class="v">' + durLabel(s.seconds) + '</div><div class="l">Time</div></div>' +
+        '<div class="si-stat"><div class="v">' + durLabel(secs) + '</div><div class="l">Time</div></div>' +
         '<div class="si-stat"><div class="v">' + (p ? p + '/m' : '--') + '</div><div class="l">Pace</div></div>' +
       '</div>' +
       (s.target ? '<div class="si-tgt">' + s.target + '</div>' : '') +
       '</div>';
   }).join('');
 }
-
-// --- Timer edit events ---
-var timerEl = document.getElementById('timer-num');
-timerEl.addEventListener('keydown', function(e) {
-  if (!editingTimer) return;
-  if (e.key === 'Enter') { e.preventDefault(); commitEdit(true); }
-  if (e.key === 'Escape') { commitEdit(false); }
-});
-timerEl.addEventListener('blur', function() {
-  if (editingTimer) commitEdit(true);
-});
 
 // --- Init ---
 updTimer();
