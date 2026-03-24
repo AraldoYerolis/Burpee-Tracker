@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Burpee Tracker</title>
+  <style>
+    :root {
+      --bg:      #08080d;
+      --surf:    #111118;
+      --surf2:   #18181f;
+      --surf3:   #222230;
+      --border:  #28283a;
+      --text:    #f0f0f8;
+      --text2:   #8080a0;
+      --text3:   #46465e;
+      --purple:  #7c3aed;
+      --pink:    #ec4899;
+      --orange:  #f97316;
+      --grad:    linear-gradient(135deg, #7c3aed 0%, #ec4899 55%, #f97316 100%);
+      --r:       12px;
+      --rsm:     8px;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { -webkit-tap-highlight-color: transparent; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', system-ui, sans-serif;
+      min-height: 100svh;
+      max-width: 480px;
+      margin: 0 auto;
+      padding-bottom: 48px;
+    }
+
+    /* Header */
+    .hdr { padding: 24px 20px 0; }
+    .hdr h1 {
+      font-size: 20px;
+      font-weight: 900;
+      letter-spacing: 1.2px;
+      background: var(--grad);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .hdr p { font-size: 11px; color: var(--text3); margin-top: 3px; letter-spacing: 0.4px; }
+
+    /* Nav */
+    .nav {
+      display: flex;
+      padding: 0 20px;
+      margin-top: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-btn {
+      flex: 1;
+      padding: 11px 0;
+      background: none;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -1px;
+      color: var(--text3);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.4px;
+      cursor: pointer;
+      transition: color 0.15s, border-color 0.15s;
+    }
+    .nav-btn.on { color: var(--text); border-bottom-color: var(--purple); }
+
+    /* Panes */
+    .pane { display: none; padding: 14px 20px 0; }
+    .pane.on { display: block; }
+
+    /* Card */
+    .card {
+      background: var(--surf);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 15px;
+      margin-bottom: 10px;
+    }
+    .clbl {
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 1.3px;
+      color: var(--text3);
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    /* Type chips */
+    .chips2 { display: flex; gap: 8px; }
+    .chip2 {
+      flex: 1;
+      padding: 11px;
+      background: var(--surf2);
+      border: 1px solid var(--border);
+      border-radius: var(--rsm);
+      color: var(--text2);
+      font-size: 13px;
+      font-weight: 700;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.2px;
+    }
+    .chip2.on { background: var(--surf3); border-color: var(--purple); color: var(--text); }
+
+    /* Duration chips */
+    .dur-chips { display: flex; gap: 6px; flex-wrap: wrap; }
+    .dur-chip {
+      padding: 8px 14px;
+      background: var(--surf2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--text2);
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .dur-chip.on { background: rgba(124,58,237,.15); border-color: var(--purple); color: var(--text); }
+    .custom-row { display: none; align-items: center; gap: 8px; margin-top: 10px; }
+    .custom-row.show { display: flex; }
+    .custom-row input {
+      width: 72px;
+      background: var(--surf2);
+      border: 1px solid var(--border);
+      border-radius: var(--rsm);
+      color: var(--text);
+      font-size: 14px;
+      padding: 8px 10px;
+      outline: none;
+      transition: border-color 0.15s;
+      -moz-appearance: textfield;
+    }
+    .custom-row input::-webkit-inner-spin-button,
+    .custom-row input::-webkit-outer-spin-button { -webkit-appearance: none; }
+    .custom-row input:focus { border-color: var(--purple); }
+    .custom-row span { font-size: 13px; color: var(--text2); }
+
+    /* Target field */
+    .field {
+      width: 100%;
+      background: var(--surf2);
+      border: 1px solid var(--border);
+      border-radius: var(--rsm);
+      color: var(--text);
+      font-size: 14px;
+      padding: 11px 12px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .field::placeholder { color: var(--text3); }
+    .field:focus { border-color: var(--purple); }
+    .field[readonly] { color: var(--text2); cursor: default; }
+
+    /* Timer */
+    .timer-num {
+      font-size: 52px;
+      font-weight: 800;
+      letter-spacing: -2px;
+      text-align: center;
+      color: var(--text);
+      font-variant-numeric: tabular-nums;
+      line-height: 1.1;
+      cursor: pointer;
+      user-select: none;
+      outline: none;
+      transition: color 0.2s;
+    }
+    .timer-num.editing { border-bottom: 2px solid var(--purple); cursor: text; letter-spacing: -1px; }
+    .timer-num.running { color: #a78bfa; }
+    .timer-hint { text-align: center; font-size: 10px; color: var(--text3); margin-top: 4px; }
+    .timer-btns { display: flex; gap: 8px; margin-top: 14px; }
+    .btn {
+      flex: 1;
+      padding: 12px;
+      background: var(--surf2);
+      border: 1px solid var(--border);
+      border-radius: var(--rsm);
+      color: var(--text2);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+      letter-spacing: 0.2px;
+    }
+    .btn:active { background: var(--surf3); color: var(--text); }
+    .btn.primary { background: var(--purple); border-color: var(--purple); color: #fff; }
+    .btn.primary:active { opacity: .82; }
+    .btn-load { width: 100%; margin-top: 10px; font-size: 12px; padding: 10px; }
+
+    /* Rep input */
+    .rep-row { display: flex; align-items: center; gap: 10px; }
+    .rep-pm {
+      width: 54px;
+      height: 54px;
+      flex-shrink: 0;
+      background: var(--surf2);
+      border: 1px solid var(--border);
+      border-radius: var(--rsm);
+      color: var(--text);
+      font-size: 26px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.1s;
+      user-select: none;
+    }
+    .rep-pm:active { background: var(--surf3); }
+    .rep-num {
+      flex: 1;
+      text-align: center;
+      background: var(--surf2);
+      border: 1px solid var(--border);
+      border-radius: var(--rsm);
+      color: var(--text);
+      font-size: 38px;
+      font-weight: 900;
+      padding: 10px;
+      outline: none;
+      -moz-appearance: textfield;
+    }
+    .rep-num::-webkit-inner-spin-button,
+    .rep-num::-webkit-outer-spin-button { -webkit-appearance: none; }
+    .rep-num:focus { border-color: var(--purple); }
+
+    /* Log button */
+    .log-btn {
+      width: 100%;
+      padding: 17px;
+      background: var(--grad);
+      border: none;
+      border-radius: var(--r);
+      color: #fff;
+      font-size: 15px;
+      font-weight: 800;
+      letter-spacing: 0.8px;
+      cursor: pointer;
+      margin-bottom: 10px;
+      transition: opacity 0.15s, background 0.3s;
+    }
+    .log-btn:active { opacity: .82; }
+    .log-btn.ok { background: #22c55e; }
+
+    /* Last session */
+    .last-stats { display: flex; gap: 8px; }
+    .ls {
+      flex: 1;
+      background: var(--surf2);
+      border-radius: var(--rsm);
+      padding: 10px 8px;
+      text-align: center;
+    }
+    .ls .v { font-size: 18px; font-weight: 800; color: var(--text); }
+    .ls .l { font-size: 9px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.6px; margin-top: 3px; }
+    .ls-meta { font-size: 11px; color: var(--text3); text-align: right; margin-top: 8px; }
+
+    /* Stats grid */
+    .stats-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+    .sbox {
+      background: var(--surf);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 14px 8px;
+      text-align: center;
+    }
+    .sbox .v { font-size: 22px; font-weight: 900; line-height: 1; }
+    .sbox .l { font-size: 9px; font-weight: 700; letter-spacing: 0.8px; color: var(--text3); text-transform: uppercase; margin-top: 5px; }
+    .sbox .s { font-size: 10px; color: var(--text2); margin-top: 3px; }
+
+    /* Benchmark bests */
+    .br {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .br:last-child { border-bottom: none; }
+    .br .d { font-size: 13px; color: var(--text2); }
+    .br .r { font-size: 15px; font-weight: 800; color: var(--text); }
+    .br .p { font-size: 11px; color: var(--text3); margin-left: 6px; }
+
+    /* Graph */
+    .g-toggle { display: flex; gap: 6px; margin-bottom: 10px; }
+    .g-btn {
+      padding: 5px 13px;
+      background: var(--surf2);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      color: var(--text3);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .g-btn.on { background: rgba(124,58,237,.15); border-color: var(--purple); color: var(--text); }
+    .g-empty { text-align: center; color: var(--text3); font-size: 12px; padding: 32px 0; }
+    canvas { width: 100%; display: block; }
+
+    /* Session list */
+    .si {
+      background: var(--surf);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+      padding: 12px 14px;
+      margin-bottom: 8px;
+    }
+    .si:last-child { margin-bottom: 0; }
+    .si-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .si-badge {
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      padding: 3px 9px;
+      border-radius: 10px;
+      background: rgba(124,58,237,.15);
+      border: 1px solid rgba(124,58,237,.3);
+      color: #a78bfa;
+    }
+    .si-badge.tr { background: rgba(236,72,153,.12); border-color: rgba(236,72,153,.3); color: #f472b6; }
+    .si-date { font-size: 11px; color: var(--text3); }
+    .si-stats { display: flex; gap: 18px; }
+    .si-stat .v { font-size: 16px; font-weight: 800; }
+    .si-stat .l { font-size: 10px; color: var(--text3); }
+    .si-tgt { font-size: 11px; color: var(--text3); margin-top: 6px; }
+    .no-si { text-align: center; color: var(--text3); font-size: 13px; padding: 40px 0; }
+  </style>
+</head>
+<body>
+
+<div class="hdr">
+  <h1>BURPEE TRACKER</h1>
+  <p>Conditioning log</p>
+</div>
+
+<nav class="nav">
+  <button class="nav-btn on" id="nav-log" onclick="showTab('log')">Log</button>
+  <button class="nav-btn" id="nav-history" onclick="showTab('history')">History</button>
+</nav>
+
+<!-- LOG PANE -->
+<div class="pane on" id="pane-log">
+
+  <div class="card">
+    <div class="clbl">Session Type</div>
+    <div class="chips2">
+      <button class="chip2 on" id="chip-bench" onclick="setType('benchmark')">Benchmark</button>
+      <button class="chip2" id="chip-train" onclick="setType('training')">Training</button>
+    </div>
+  </div>
+
+  <div class="card" id="dur-card">
+    <div class="clbl">Duration</div>
+    <div class="dur-chips">
+      <button class="dur-chip on" data-m="10" onclick="setDur(10)">10 min</button>
+      <button class="dur-chip" data-m="15" onclick="setDur(15)">15 min</button>
+      <button class="dur-chip" data-m="20" onclick="setDur(20)">20 min</button>
+      <button class="dur-chip" data-m="custom" onclick="setDur('custom')">Custom</button>
+    </div>
+    <div class="custom-row" id="custom-row">
+      <input type="number" id="custom-val" min="1" max="120" placeholder="30" oninput="onCustomInput()">
+      <span>minutes</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="clbl">Today's Target</div>
+    <input type="text" class="field" id="target-field" placeholder="e.g. Max burpees in 10:00">
+  </div>
+
+  <div class="card">
+    <div class="clbl">Timer</div>
+    <div class="timer-num" id="timer-num" onclick="editTimer()">00:10:00</div>
+    <div class="timer-hint" id="timer-hint">tap to edit</div>
+    <div class="timer-btns">
+      <button class="btn primary" id="start-btn" onclick="toggleTimer()">Start</button>
+      <button class="btn" onclick="resetTimer()">Reset</button>
+    </div>
+    <button class="btn btn-load" onclick="loadBenchTime()">Load Benchmark Time</button>
+  </div>
+
+  <div class="card">
+    <div class="clbl">Reps</div>
+    <div class="rep-row">
+      <div class="rep-pm" onclick="adjReps(-1)">-</div>
+      <input type="number" class="rep-num" id="rep-num" value="0" min="0">
+      <div class="rep-pm" onclick="adjReps(1)">+</div>
+    </div>
+  </div>
+
+  <button class="log-btn" id="log-btn" onclick="logSession()">Log Session</button>
+
+  <div class="card" id="last-card" style="display:none">
+    <div class="clbl">Last Session</div>
+    <div class="last-stats" id="last-stats"></div>
+    <div class="ls-meta" id="last-meta"></div>
+  </div>
+
+</div>
+
+<!-- HISTORY PANE -->
+<div class="pane" id="pane-history">
+
+  <div class="stats-row">
+    <div class="sbox">
+      <div class="v" id="s-total">0</div>
+      <div class="l">Total Reps</div>
+    </div>
+    <div class="sbox">
+      <div class="v" id="s-sessions">0</div>
+      <div class="l">Sessions</div>
+    </div>
+    <div class="sbox">
+      <div class="v" id="s-best">--</div>
+      <div class="l">Best Pace</div>
+      <div class="s" id="s-best-sub"></div>
+    </div>
+  </div>
+
+  <div class="card" id="bench-card" style="display:none">
+    <div class="clbl">Benchmark Bests</div>
+    <div id="bench-rows"></div>
+  </div>
+
+  <div class="card">
+    <div class="clbl">Progress</div>
+    <div class="g-toggle">
+      <button class="g-btn on" id="g-pace" onclick="setGraph('pace')">Pace</button>
+      <button class="g-btn" id="g-reps" onclick="setGraph('reps')">Reps</button>
+    </div>
+    <canvas id="graph" height="140"></canvas>
+    <div class="g-empty" id="g-empty" style="display:none">Log 2+ benchmark sessions to see progress</div>
+  </div>
+
+  <div class="card">
+    <div class="clbl">Sessions</div>
+    <div id="session-list"></div>
+  </div>
+
+</div>
+
+<script>
+// --- State ---
+var sType = 'benchmark';
+var durMin = 10;
+var timerSec = 600;
+var timerOn = false;
+var timerTick = null;
+var editingTimer = false;
+var graphMode = 'pace';
+
+// --- Storage ---
+var STORE_KEY = 'bt_v1';
+function loadSessions() {
+  try { return JSON.parse(localStorage.getItem(STORE_KEY) || '[]'); }
+  catch (e) { return []; }
+}
+function saveSessions(arr) {
+  localStorage.setItem(STORE_KEY, JSON.stringify(arr));
+}
+
+// --- Helpers ---
+function pad(n) { return String(n).padStart(2, '0'); }
+function fmtTime(s) {
+  return pad(Math.floor(s / 3600)) + ':' + pad(Math.floor((s % 3600) / 60)) + ':' + pad(s % 60);
+}
+function parseTime(str) {
+  var p = str.trim().split(':').map(Number);
+  if (p.some(isNaN)) return NaN;
+  if (p.length === 3) return p[0] * 3600 + p[1] * 60 + p[2];
+  if (p.length === 2) return p[0] * 60 + p[1];
+  return NaN;
+}
+function calcPace(reps, secs) {
+  if (!secs || secs <= 0 || reps == null) return null;
+  return (reps / secs * 60).toFixed(1);
+}
+function durLabel(secs) {
+  if (!secs) return '--';
+  var m = Math.floor(secs / 60);
+  var s = secs % 60;
+  return s ? m + 'm ' + s + 's' : m + 'm';
+}
+function fmtDate(iso) {
+  return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+}
+
+// --- Session type ---
+function setType(t) {
+  sType = t;
+  document.getElementById('chip-bench').classList.toggle('on', t === 'benchmark');
+  document.getElementById('chip-train').classList.toggle('on', t === 'training');
+  document.getElementById('dur-card').style.display = t === 'benchmark' ? 'block' : 'none';
+  syncTarget();
+}
+
+// --- Duration ---
+function setDur(m) {
+  durMin = m;
+  document.querySelectorAll('.dur-chip').forEach(function(c) {
+    c.classList.toggle('on', String(c.dataset.m) === String(m));
+  });
+  document.getElementById('custom-row').classList.toggle('show', m === 'custom');
+  syncTarget();
+}
+function onCustomInput() {
+  var v = parseInt(document.getElementById('custom-val').value);
+  if (v > 0) { durMin = v; syncTarget(); }
+}
+function effMin() {
+  if (durMin === 'custom') {
+    var v = parseInt(document.getElementById('custom-val').value);
+    return v > 0 ? v : null;
+  }
+  return durMin;
+}
+
+// --- Target ---
+function syncTarget() {
+  var f = document.getElementById('target-field');
+  if (sType === 'benchmark') {
+    var m = effMin();
+    if (m) {
+      f.value = 'Max burpees in ' + pad(m) + ':00';
+      f.readOnly = true;
+    } else {
+      f.value = '';
+      f.readOnly = false;
+      f.placeholder = 'e.g. Max burpees in 20:00';
+    }
+  } else {
+    f.readOnly = false;
+    if (f.value && f.value.indexOf('Max burpees in') === 0) f.value = '';
+    f.placeholder = 'Optional target';
+  }
+}
+
+// --- Timer ---
+function updTimer() {
+  document.getElementById('timer-num').textContent = fmtTime(timerSec);
+}
+function toggleTimer() {
+  timerOn ? pauseTimer() : startTimer();
+}
+function startTimer() {
+  if (timerSec <= 0) return;
+  timerOn = true;
+  document.getElementById('start-btn').textContent = 'Pause';
+  document.getElementById('timer-num').classList.add('running');
+  timerTick = setInterval(function() {
+    timerSec--;
+    updTimer();
+    if (timerSec <= 0) pauseTimer();
+  }, 1000);
+}
+function pauseTimer() {
+  timerOn = false;
+  clearInterval(timerTick);
+  document.getElementById('start-btn').textContent = 'Start';
+  document.getElementById('timer-num').classList.remove('running');
+}
+function resetTimer() {
+  pauseTimer();
+  var m = effMin();
+  timerSec = (sType === 'benchmark' && m) ? m * 60 : 0;
+  updTimer();
+}
+function loadBenchTime() {
+  if (sType !== 'benchmark') return;
+  var m = effMin();
+  if (!m) return;
+  pauseTimer();
+  timerSec = m * 60;
+  updTimer();
+}
+function editTimer() {
+  if (timerOn || editingTimer) return;
+  editingTimer = true;
+  var el = document.getElementById('timer-num');
+  var hint = document.getElementById('timer-hint');
+  el.contentEditable = 'true';
+  el.classList.add('editing');
+  hint.textContent = 'HH:MM:SS or MM:SS -- press Enter';
+  el.focus();
+  var r = document.createRange();
+  r.selectNodeContents(el);
+  var sel = window.getSelection();
+  sel.removeAllRanges();
+  sel.addRange(r);
+}
+function commitEdit(save) {
+  if (!editingTimer) return;
+  editingTimer = false;
+  var el = document.getElementById('timer-num');
+  if (save) {
+    var v = parseTime(el.textContent);
+    if (!isNaN(v) && v >= 0) timerSec = v;
+  }
+  el.textContent = fmtTime(timerSec);
+  el.contentEditable = 'false';
+  el.classList.remove('editing');
+  document.getElementById('timer-hint').textContent = 'tap to edit';
+}
+
+// --- Reps ---
+function adjReps(d) {
+  var el = document.getElementById('rep-num');
+  el.value = Math.max(0, (parseInt(el.value) || 0) + d);
+}
+
+// --- Log session ---
+function logSession() {
+  var reps = parseInt(document.getElementById('rep-num').value) || 0;
+  var target = document.getElementById('target-field').value.trim();
+  var m = effMin();
+  var benchSecs = (sType === 'benchmark' && m) ? m * 60 : null;
+
+  var sess = {
+    id: Date.now(),
+    date: new Date().toISOString(),
+    type: sType,
+    reps: reps,
+    seconds: benchSecs,
+    target: target,
+    benchmarkMinutes: sType === 'benchmark' ? m : null
+  };
+
+  var arr = loadSessions();
+  arr.unshift(sess);
+  saveSessions(arr);
+
+  document.getElementById('rep-num').value = 0;
+  showLastSession(sess);
+
+  var btn = document.getElementById('log-btn');
+  btn.textContent = 'Logged!';
+  btn.classList.add('ok');
+  setTimeout(function() {
+    btn.textContent = 'Log Session';
+    btn.classList.remove('ok');
+  }, 1600);
+}
+
+function showLastSession(s) {
+  var p = calcPace(s.reps, s.seconds);
+  document.getElementById('last-stats').innerHTML =
+    '<div class="ls"><div class="v">' + s.reps + '</div><div class="l">Reps</div></div>' +
+    '<div class="ls"><div class="v">' + durLabel(s.seconds) + '</div><div class="l">Duration</div></div>' +
+    '<div class="ls"><div class="v">' + (p ? p + '/m' : '--') + '</div><div class="l">Pace</div></div>';
+  document.getElementById('last-meta').textContent =
+    s.type === 'benchmark'
+      ? 'Benchmark' + (s.benchmarkMinutes ? ' -- ' + s.benchmarkMinutes + ' min' : '')
+      : 'Training';
+  document.getElementById('last-card').style.display = 'block';
+}
+
+// --- Tab switching ---
+function showTab(t) {
+  ['log', 'history'].forEach(function(id) {
+    document.getElementById('pane-' + id).classList.toggle('on', id === t);
+    document.getElementById('nav-' + id).classList.toggle('on', id === t);
+  });
+  if (t === 'history') renderHistory();
+}
+
+// --- History ---
+function renderHistory() {
+  var arr = loadSessions();
+  renderStats(arr);
+  renderBenchBests(arr);
+  renderGraph(arr);
+  renderList(arr);
+}
+
+function renderStats(arr) {
+  var total = arr.reduce(function(a, s) { return a + (s.reps || 0); }, 0);
+  document.getElementById('s-total').textContent = total.toLocaleString();
+  document.getElementById('s-sessions').textContent = arr.length;
+
+  var bench = arr.filter(function(s) { return s.type === 'benchmark' && s.seconds > 0 && s.reps > 0; });
+  if (bench.length > 0) {
+    var best = bench.reduce(function(b, s) {
+      return (s.reps / s.seconds > b.reps / b.seconds) ? s : b;
+    });
+    var p = calcPace(best.reps, best.seconds);
+    document.getElementById('s-best').textContent = p ? p + '/m' : '--';
+    document.getElementById('s-best-sub').textContent = best.reps + ' in ' + durLabel(best.seconds);
+  } else {
+    document.getElementById('s-best').textContent = '--';
+    document.getElementById('s-best-sub').textContent = '';
+  }
+}
+
+function renderBenchBests(arr) {
+  var card = document.getElementById('bench-card');
+  var bench = arr.filter(function(s) { return s.type === 'benchmark' && s.benchmarkMinutes && s.reps > 0; });
+  if (bench.length === 0) { card.style.display = 'none'; return; }
+
+  var map = {};
+  bench.forEach(function(s) {
+    var k = s.benchmarkMinutes;
+    if (!map[k] || s.reps > map[k].reps) map[k] = s;
+  });
+
+  var keys = Object.keys(map).map(Number).sort(function(a, b) { return a - b; });
+  document.getElementById('bench-rows').innerHTML = keys.map(function(k) {
+    var s = map[k];
+    var p = calcPace(s.reps, s.seconds);
+    return '<div class="br"><span class="d">Best ' + k + ' min</span>' +
+      '<div><span class="r">' + s.reps + ' reps</span>' +
+      (p ? '<span class="p">' + p + '/min</span>' : '') + '</div></div>';
+  }).join('');
+  card.style.display = 'block';
+}
+
+// --- Graph ---
+function setGraph(mode) {
+  graphMode = mode;
+  document.getElementById('g-pace').classList.toggle('on', mode === 'pace');
+  document.getElementById('g-reps').classList.toggle('on', mode === 'reps');
+  renderGraph(loadSessions());
+}
+
+function renderGraph(arr) {
+  var canvas = document.getElementById('graph');
+  var empty = document.getElementById('g-empty');
+
+  var data = arr
+    .filter(function(s) { return s.type === 'benchmark' && s.seconds > 0 && s.reps >= 0; })
+    .slice(0, 30)
+    .reverse();
+
+  if (data.length < 2) {
+    canvas.style.display = 'none';
+    empty.style.display = 'block';
+    return;
+  }
+  canvas.style.display = 'block';
+  empty.style.display = 'none';
+
+  var dpr = window.devicePixelRatio || 1;
+  var W = canvas.parentElement.getBoundingClientRect().width || 300;
+  var H = 140;
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+
+  var ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  ctx.clearRect(0, 0, W, H);
+
+  var vals = data.map(function(s) {
+    return graphMode === 'pace' ? parseFloat(calcPace(s.reps, s.seconds)) : s.reps;
+  });
+  var mn = Math.min.apply(null, vals);
+  var mx = Math.max.apply(null, vals);
+  var rng = mx - mn || 1;
+
+  var pd = { t: 16, r: 12, b: 20, l: 34 };
+  var gw = W - pd.l - pd.r;
+  var gh = H - pd.t - pd.b;
+  var xStep = gw / (vals.length - 1);
+
+  var pts = vals.map(function(v, i) {
+    return { x: pd.l + i * xStep, y: pd.t + gh - (v - mn) / rng * gh };
+  });
+
+  // Guides
+  ctx.lineWidth = 1;
+  [0, 0.5, 1].forEach(function(t) {
+    var y = pd.t + gh - t * gh;
+    var v = mn + t * rng;
+    ctx.strokeStyle = 'rgba(255,255,255,0.05)';
+    ctx.beginPath(); ctx.moveTo(pd.l, y); ctx.lineTo(pd.l + gw, y); ctx.stroke();
+    ctx.fillStyle = 'rgba(136,136,160,0.55)';
+    ctx.font = '9px system-ui';
+    ctx.textAlign = 'right';
+    ctx.fillText(graphMode === 'pace' ? v.toFixed(1) : Math.round(v), pd.l - 4, y + 3);
+  });
+
+  // Fill
+  var fill = ctx.createLinearGradient(0, pd.t, 0, pd.t + gh);
+  fill.addColorStop(0, 'rgba(124,58,237,0.25)');
+  fill.addColorStop(1, 'rgba(124,58,237,0.01)');
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pd.t + gh);
+  pts.forEach(function(p) { ctx.lineTo(p.x, p.y); });
+  ctx.lineTo(pts[pts.length - 1].x, pd.t + gh);
+  ctx.closePath();
+  ctx.fillStyle = fill;
+  ctx.fill();
+
+  // Line
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  pts.forEach(function(p, i) {
+    if (i === 0) return;
+    var prev = pts[i - 1];
+    var cx = (prev.x + p.x) / 2;
+    ctx.bezierCurveTo(cx, prev.y, cx, p.y, p.x, p.y);
+  });
+  var lineGrad = ctx.createLinearGradient(pd.l, 0, pd.l + gw, 0);
+  lineGrad.addColorStop(0, '#7c3aed');
+  lineGrad.addColorStop(0.5, '#ec4899');
+  lineGrad.addColorStop(1, '#f97316');
+  ctx.strokeStyle = lineGrad;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Dots
+  pts.forEach(function(p, i) {
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, 3.5, 0, Math.PI * 2);
+    ctx.fillStyle = i === pts.length - 1 ? '#f97316' : '#7c3aed';
+    ctx.fill();
+  });
+}
+
+// --- Session list ---
+function renderList(arr) {
+  var el = document.getElementById('session-list');
+  if (arr.length === 0) {
+    el.innerHTML = '<div class="no-si">No sessions yet. Log your first session.</div>';
+    return;
+  }
+  el.innerHTML = arr.map(function(s) {
+    var p = calcPace(s.reps, s.seconds);
+    var isBench = s.type === 'benchmark';
+    return '<div class="si">' +
+      '<div class="si-top">' +
+        '<span class="si-badge' + (isBench ? '' : ' tr') + '">' + (isBench ? 'Benchmark' : 'Training') + '</span>' +
+        '<span class="si-date">' + fmtDate(s.date) + '</span>' +
+      '</div>' +
+      '<div class="si-stats">' +
+        '<div class="si-stat"><div class="v">' + s.reps + '</div><div class="l">Reps</div></div>' +
+        '<div class="si-stat"><div class="v">' + durLabel(s.seconds) + '</div><div class="l">Time</div></div>' +
+        '<div class="si-stat"><div class="v">' + (p ? p + '/m' : '--') + '</div><div class="l">Pace</div></div>' +
+      '</div>' +
+      (s.target ? '<div class="si-tgt">' + s.target + '</div>' : '') +
+      '</div>';
+  }).join('');
+}
+
+// --- Timer edit events ---
+var timerEl = document.getElementById('timer-num');
+timerEl.addEventListener('keydown', function(e) {
+  if (!editingTimer) return;
+  if (e.key === 'Enter') { e.preventDefault(); commitEdit(true); }
+  if (e.key === 'Escape') { commitEdit(false); }
+});
+timerEl.addEventListener('blur', function() {
+  if (editingTimer) commitEdit(true);
+});
+
+// --- Init ---
+updTimer();
+syncTarget();
+(function() {
+  var arr = loadSessions();
+  if (arr.length > 0) showLastSession(arr[0]);
+}());
+</script>
+</body>
+</html>
