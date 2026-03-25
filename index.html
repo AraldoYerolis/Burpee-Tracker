@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
   <title>Burpee Tracker</title>
   <style>
     :root {
@@ -32,7 +32,7 @@
       min-height: 100svh;
       max-width: 480px;
       margin: 0 auto;
-      padding-bottom: 48px;
+      padding-bottom: calc(48px + env(safe-area-inset-bottom, 0px));
     }
 
     /* Header */
@@ -377,6 +377,46 @@
     .si-stat .l { font-size: 10px; color: var(--text3); }
     .si-tgt { font-size: 11px; color: var(--text3); margin-top: 6px; }
     .no-si { text-align: center; color: var(--text3); font-size: 13px; padding: 40px 0; }
+
+    /* Timer preset chips */
+    .t-presets { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+    .t-preset {
+      padding: 5px 11px;
+      background: var(--surf2);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      color: var(--text2);
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .t-preset:active { background: var(--surf3); border-color: var(--purple); color: var(--text); }
+
+    /* Per-entry delete button */
+    .si-del {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: var(--rsm);
+      color: var(--text3);
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      cursor: pointer;
+      transition: all 0.15s;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+    .si-del:active { border-color: #ef4444; color: #ef4444; }
+
+    /* Log validation message */
+    .val-msg {
+      font-size: 12px;
+      color: var(--orange);
+      text-align: center;
+      min-height: 18px;
+      margin-bottom: 6px;
+    }
   </style>
 </head>
 <body>
@@ -424,7 +464,7 @@
   <div class="card">
     <div class="clbl">Timer</div>
     <div class="timer-num" id="timer-num" onclick="editTimer()">00:10:00</div>
-    <div class="timer-hint" id="timer-hint">tap to set time</div>
+    <div class="timer-hint" id="timer-hint">counts down · tap to adjust</div>
     <div class="timer-btns">
       <button class="btn primary" id="start-btn" onclick="toggleTimer()">Start</button>
       <button class="btn" onclick="resetTimer()">Reset</button>
@@ -441,6 +481,7 @@
     </div>
   </div>
 
+  <div class="val-msg" id="val-msg"></div>
   <button class="log-btn" id="log-btn" onclick="logSession()">Log Session</button>
 
   <div class="card" id="last-card" style="display:none">
@@ -496,10 +537,17 @@
 <div class="t-modal-overlay" id="timer-modal">
   <div class="t-modal">
     <div class="t-modal-lbl">Set Timer</div>
+    <div class="t-presets">
+      <button class="t-preset" onclick="applyPreset(1)">1 min</button>
+      <button class="t-preset" onclick="applyPreset(5)">5 min</button>
+      <button class="t-preset" onclick="applyPreset(10)">10 min</button>
+      <button class="t-preset" onclick="applyPreset(15)">15 min</button>
+      <button class="t-preset" onclick="applyPreset(20)">20 min</button>
+    </div>
     <div class="t-modal-inputs">
-      <input type="number" id="modal-min" min="0" max="99" placeholder="00">
+      <input type="number" id="modal-min" min="0" max="99" placeholder="00" inputmode="numeric" pattern="[0-9]*" onfocus="this.select()">
       <span class="t-modal-sep">:</span>
-      <input type="number" id="modal-sec" min="0" max="59" placeholder="00">
+      <input type="number" id="modal-sec" min="0" max="59" placeholder="00" inputmode="numeric" pattern="[0-9]*" onfocus="this.select()">
     </div>
     <div class="t-modal-btns">
       <button class="btn" style="flex:1" onclick="closeTimerModal(false)">Cancel</button>
@@ -555,7 +603,8 @@ function fmtDate(iso) {
 }
 
 function getCompletedSecs(s) {
-  return s.completedSeconds != null ? s.completedSeconds : s.seconds;
+  var v = s.completedSeconds != null ? s.completedSeconds : s.seconds;
+  return (v && v > 0) ? v : null;
 }
 
 // --- Session type ---
@@ -565,6 +614,11 @@ function setType(t) {
   document.getElementById('chip-train').classList.toggle('on', t === 'training');
   document.getElementById('dur-card').style.display = t === 'benchmark' ? 'block' : 'none';
   syncTarget();
+  updateTimerHint();
+}
+function updateTimerHint() {
+  document.getElementById('timer-hint').textContent =
+    sType === 'benchmark' ? 'counts down · tap to adjust' : 'counts up · tap to set start time';
 }
 
 // --- Duration ---
@@ -658,6 +712,15 @@ function editTimer() {
   document.getElementById('modal-min').value = Math.floor(timerSec / 60);
   document.getElementById('modal-sec').value = timerSec % 60;
   document.getElementById('timer-modal').classList.add('show');
+  setTimeout(function() {
+    var el = document.getElementById('modal-min');
+    el.focus();
+    el.select();
+  }, 60);
+}
+function applyPreset(min) {
+  document.getElementById('modal-min').value = min;
+  document.getElementById('modal-sec').value = 0;
   document.getElementById('modal-min').focus();
 }
 function closeTimerModal(save) {
@@ -676,12 +739,25 @@ function adjReps(d) {
   el.value = Math.max(0, (parseInt(el.value) || 0) + d);
 }
 
+// --- Validation message ---
+function showValMsg(msg) {
+  var el = document.getElementById('val-msg');
+  el.textContent = msg;
+  clearTimeout(el._t);
+  el._t = setTimeout(function() { el.textContent = ''; }, 2500);
+}
+
 // --- Log session ---
 function logSession() {
   var reps = parseInt(document.getElementById('rep-num').value) || 0;
-  var target = document.getElementById('target-field').value.trim();
+  if (reps <= 0) { showValMsg('Enter reps first'); return; }
+
   var m = effMin();
   var benchSecs = (sType === 'benchmark' && m) ? m * 60 : null;
+  var completedSecs = elapsedSec > 0 ? elapsedSec : (benchSecs || null);
+  if (!completedSecs || completedSecs <= 0) { showValMsg('Record some time first'); return; }
+
+  var target = document.getElementById('target-field').value.trim();
 
   var sess = {
     id: Date.now(),
@@ -689,7 +765,7 @@ function logSession() {
     type: sType,
     reps: reps,
     seconds: benchSecs,
-    completedSeconds: elapsedSec > 0 ? elapsedSec : (benchSecs || null),
+    completedSeconds: completedSecs,
     target: target,
     benchmarkMinutes: sType === 'benchmark' ? m : null
   };
@@ -887,6 +963,19 @@ function renderGraph(arr) {
   });
 }
 
+// --- Delete session ---
+function deleteSession(id) {
+  if (!confirm('Delete this session?')) return;
+  var arr = loadSessions().filter(function(s) { return s.id !== id; });
+  saveSessions(arr);
+  renderHistory();
+  if (arr.length > 0) {
+    showLastSession(arr[0]);
+  } else {
+    document.getElementById('last-card').style.display = 'none';
+  }
+}
+
 // --- Session list ---
 function renderList(arr) {
   var el = document.getElementById('session-list');
@@ -896,12 +985,15 @@ function renderList(arr) {
   }
   el.innerHTML = arr.map(function(s) {
     var secs = getCompletedSecs(s);
-    var p = calcPace(s.reps, secs);
+    var p = secs ? calcPace(s.reps, secs) : null;
     var isBench = s.type === 'benchmark';
     return '<div class="si">' +
       '<div class="si-top">' +
         '<span class="si-badge' + (isBench ? '' : ' tr') + '">' + (isBench ? 'Benchmark' : 'Training') + '</span>' +
-        '<span class="si-date">' + fmtDate(s.date) + '</span>' +
+        '<div style="display:flex;align-items:center;gap:8px">' +
+          '<span class="si-date">' + fmtDate(s.date) + '</span>' +
+          '<button class="si-del" onclick="deleteSession(' + s.id + ')">&#x2715;</button>' +
+        '</div>' +
       '</div>' +
       '<div class="si-stats">' +
         '<div class="si-stat"><div class="v">' + s.reps + '</div><div class="l">Reps</div></div>' +
@@ -916,6 +1008,7 @@ function renderList(arr) {
 // --- Init ---
 updTimer();
 syncTarget();
+updateTimerHint();
 (function() {
   var arr = loadSessions();
   if (arr.length > 0) showLastSession(arr[0]);
