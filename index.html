@@ -606,6 +606,14 @@ function getCompletedSecs(s) {
   var v = s.completedSeconds != null ? s.completedSeconds : s.seconds;
   return (v && v > 0) ? v : null;
 }
+// A session counts as a true benchmark completion if elapsed time
+// reached within 5s of the intended duration (handles timer auto-stop rounding).
+function isFullBenchmark(s) {
+  if (s.type !== 'benchmark' || !s.benchmarkMinutes) return false;
+  var secs = getCompletedSecs(s);
+  if (!secs) return false;
+  return secs >= s.benchmarkMinutes * 60 - 5;
+}
 
 // --- Session type ---
 function setType(t) {
@@ -726,9 +734,10 @@ function applyPreset(min) {
 function closeTimerModal(save) {
   document.getElementById('timer-modal').classList.remove('show');
   if (save) {
-    var m = parseInt(document.getElementById('modal-min').value) || 0;
-    var s = parseInt(document.getElementById('modal-sec').value) || 0;
+    var m = Math.max(0, Math.min(99, parseInt(document.getElementById('modal-min').value) || 0));
+    var s = Math.max(0, Math.min(59, parseInt(document.getElementById('modal-sec').value) || 0));
     timerSec = m * 60 + s;
+    elapsedSec = 0;
     updTimer();
   }
 }
@@ -754,7 +763,7 @@ function logSession() {
 
   var m = effMin();
   var benchSecs = (sType === 'benchmark' && m) ? m * 60 : null;
-  var completedSecs = elapsedSec > 0 ? elapsedSec : (benchSecs || null);
+  var completedSecs = elapsedSec > 0 ? elapsedSec : null;
   if (!completedSecs || completedSecs <= 0) { showValMsg('Record some time first'); return; }
 
   var target = document.getElementById('target-field').value.trim();
@@ -776,6 +785,7 @@ function logSession() {
 
   document.getElementById('rep-num').value = 0;
   showLastSession(sess);
+  resetTimer();
 
   var btn = document.getElementById('log-btn');
   btn.textContent = 'Logged!';
@@ -823,7 +833,7 @@ function renderStats(arr) {
   document.getElementById('s-total').textContent = total.toLocaleString();
   document.getElementById('s-sessions').textContent = arr.length;
 
-  var bench = arr.filter(function(s) { return s.type === 'benchmark' && getCompletedSecs(s) > 0 && s.reps > 0; });
+  var bench = arr.filter(function(s) { return isFullBenchmark(s) && s.reps > 0; });
   if (bench.length > 0) {
     var best = bench.reduce(function(b, s) {
       return (s.reps / getCompletedSecs(s) > b.reps / getCompletedSecs(b)) ? s : b;
@@ -839,7 +849,7 @@ function renderStats(arr) {
 
 function renderBenchBests(arr) {
   var card = document.getElementById('bench-card');
-  var bench = arr.filter(function(s) { return s.type === 'benchmark' && s.benchmarkMinutes && s.reps > 0; });
+  var bench = arr.filter(function(s) { return isFullBenchmark(s) && s.reps > 0; });
   if (bench.length === 0) { card.style.display = 'none'; return; }
 
   var map = {};
